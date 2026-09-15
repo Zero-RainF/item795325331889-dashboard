@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧴 金银花柚子汁13袋 · 评论数据分析看板</title>
+<script src="echarts.min.js"></script>
+<script src="echarts-wordcloud.min.js"></script>
+<style>
+  :root {
+    --primary: #6d5ef7;
+    --primary2: #8b5cf6;
+    --purple: #a855f7;
+    --blue: #3b82f6;
+    --green: #22c55e;
+    --green-bg: #ecfdf5;
+    --amber: #f59e0b;
+    --amber-bg: #fffbeb;
+    --red: #ef4444;
+    --red-bg: #fef2f2;
+    --gray: #94a3b8;
+    --gray-bg: #f1f5f9;
+    --text: #1e293b;
+    --text-sub: #64748b;
+    --border: #e2e8f0;
+    --card: #ffffff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    background: linear-gradient(160deg, #f6f7ff 0%, #f3f0ff 45%, #f8f5ff 100%);
+    color: var(--text); min-height: 100vh;
+  }
+  .header {
+    background: linear-gradient(120deg, #4338ca 0%, #6d5ef7 40%, #8b5cf6 70%, #a855f7 100%);
+    color: #fff; padding: 26px 36px; display: flex; justify-content: space-between;
+    align-items: center; flex-wrap: wrap; gap: 12px;
+    box-shadow: 0 4px 24px rgba(109, 94, 247, .35);
+  }
+  .header h1 { font-size: 24px; font-weight: 700; letter-spacing: .5px; text-shadow: 0 1px 4px rgba(0,0,0,.15); }
+  .header .sub { font-size: 13px; opacity: .9; margin-top: 5px; }
+  .header .badge {
+    background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35);
+    border-radius: 20px; padding: 7px 18px; font-size: 13px; backdrop-filter: blur(4px);
+  }
+  .tabs {
+    display: flex; gap: 6px; padding: 0 32px; position: sticky; top: 0; z-index: 50;
+    background: rgba(255,255,255,.85); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    padding: 15px 20px; font-size: 14.5px; cursor: pointer; color: var(--text-sub);
+    border-bottom: 3px solid transparent; user-select: none; transition: color .2s;
+  }
+  .tab:hover { color: var(--primary); }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+  .page { display: none; padding: 26px 36px 40px; max-width: 1440px; margin: 0 auto; }
+  .page.active { display: block; animation: fadeIn .35s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .kpi-card {
+    background: var(--card); border-radius: 14px; padding: 16px 18px;
+    box-shadow: 0 2px 10px rgba(109,94,247,.08); border: 1px solid var(--border);
+    border-top: 3px solid var(--primary); position: relative; overflow: hidden;
+  }
+  .kpi-card::after {
+    content: ""; position: absolute; right: -20px; top: -20px; width: 70px; height: 70px;
+    border-radius: 50%; background: linear-gradient(135deg, rgba(109,94,247,.12), rgba(168,85,247,.06));
+  }
+  .kpi-card .label { font-size: 12.5px; color: var(--text-sub); margin-bottom: 7px; }
+  .kpi-card .value { font-size: 28px; font-weight: 700; background: linear-gradient(120deg, var(--primary), var(--purple)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .kpi-card .value small { font-size: 13px; font-weight: 400; }
+  .kpi-card .hint { font-size: 11.5px; color: var(--text-sub); margin-top: 5px; }
+  .kpi-card.good { border-top-color: var(--green); }
+  .kpi-card.good .value { background: linear-gradient(120deg, #16a34a, #22c55e); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .kpi-card.warn { border-top-color: var(--amber); }
+  .kpi-card.warn .value { background: linear-gradient(120deg, #d97706, #f59e0b); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .kpi-card.bad { border-top-color: var(--red); }
+  .kpi-card.bad .value { background: linear-gradient(120deg, #dc2626, #ef4444); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .card {
+    background: var(--card); border-radius: 14px; padding: 18px 20px;
+    box-shadow: 0 2px 10px rgba(109,94,247,.07); border: 1px solid var(--border);
+  }
+  .card h3 { font-size: 15px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .card h3::before { content: ""; width: 4px; height: 16px; border-radius: 2px; display: inline-block;
+    background: linear-gradient(180deg, var(--primary), var(--purple)); }
+  .chart { width: 100%; height: 310px; }
+  .chart.tall { height: 360px; }
+  .chart.short { height: 250px; }
+  .insight-box {
+    background: linear-gradient(120deg, #eef2ff, #f5f3ff); border-left: 4px solid var(--primary);
+    border-radius: 10px; padding: 15px 20px; margin-bottom: 16px; font-size: 13.5px; line-height: 2;
+  }
+  .insight-box strong { color: var(--primary); }
+  .table-wrap { overflow-x: auto; }
+  table.ov-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .ov-table th, .ov-table td { padding: 9px 11px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .ov-table th { background: linear-gradient(120deg, #f5f3ff, #eef2ff); color: #4338ca; font-weight: 600; white-space: nowrap; }
+  .ov-table td.sample { color: var(--text-sub); font-size: 12px; line-height: 1.6; max-width: 320px; }
+  .ov-table tr:hover td { background: #faf9ff; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .badge.good { background: var(--green-bg); color: #16a34a; }
+  .badge.mid { background: var(--amber-bg); color: #d97706; }
+  .badge.bad { background: var(--red-bg); color: #dc2626; }
+  .badge.info { background: #eef2ff; color: var(--primary); }
+  .badge.gray { background: var(--gray-bg); color: var(--gray); }
+  .review-list { display: flex; flex-direction: column; gap: 9px; max-height: 320px; overflow-y: auto; padding-right: 4px; }
+  .review-item { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 13px; line-height: 1.7; background: #faf9ff; }
+  .review-item .meta { font-size: 12px; color: var(--text-sub); margin-bottom: 4px; }
+  .footer { text-align: center; color: var(--text-sub); font-size: 12px; padding: 22px; }
+  @media (max-width: 1000px) { .grid2, .grid3 { grid-template-columns: 1fr; } .page { padding: 16px; } .tabs { padding: 0 12px; overflow-x: auto; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🧴 金银花柚子汁13袋 · 评论数据分析看板</h1>
+    <div class="sub"><a href="https://detail.tmall.com/item.htm?abbucket=11&id=795325331889" target="_blank" style="color:#fff;text-decoration:underline;opacity:.95">🔗 商品链接：detail.tmall.com/item.htm?abbucket=11&id=795325331889</a></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchPage('overview', this)">📊 总览</div>
+  <div class="tab" onclick="switchPage('sentiment', this)">💬 情感分析</div>
+  <div class="tab" onclick="switchPage('sku', this)">📦 商品维度</div>
+  <div class="tab" onclick="switchPage('time', this)">🕐 时间维度</div>
+  <div class="tab" onclick="switchPage('portrait', this)">👤 用户画像</div>
+</div>
+
+<!-- ================= 页1 总览 ================= -->
+<div class="page active" id="page-overview">
+  <div class="kpi-row">
+    <div class="kpi-card"><div class="label">总评论数</div><div class="value" id="kpi-total">-</div><div class="hint">2024-09 ~ 2026-09</div></div>
+    <div class="kpi-card good"><div class="label">真实好评率</div><div class="value" id="kpi-good-rate">-<small>%</small></div><div class="hint">仅统计真实内容评论</div></div>
+    <div class="kpi-card"><div class="label">平台模板好评</div><div class="value" id="kpi-tpl">-<small>条</small></div><div class="hint">占 <span id="kpi-tpl-rate">-</span>%，无文字内容</div></div>
+    <div class="kpi-card warn"><div class="label">中评</div><div class="value" id="kpi-mid">-<small>条</small></div><div class="hint">保留/待观察型意见</div></div>
+    <div class="kpi-card bad"><div class="label">差评</div><div class="value" id="kpi-bad">-<small>条</small></div><div class="hint">需重点关注</div></div>
+    <div class="kpi-card"><div class="label">复购信号</div><div class="value" id="kpi-rep">-<small>条</small></div><div class="hint">评论提到回购/复购/续购</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h3>情感结构分布（含模板好评对比）</h3><div id="ov-pie" class="chart" data-chart="ov-pie"></div></div>
+    <div class="card"><h3>月度评论量 &amp; 真实好评率走势（2024-09 ~ 2026-09）</h3><div id="ov-trend" class="chart tall" data-chart="ov-trend"></div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h3>好评点 TOP（真实好评提到最多的方面）</h3><div id="ov-good-theme" class="chart" data-chart="ov-good-theme"></div></div>
+    <div class="card"><h3>差评归因 TOP（中差评"坏在哪"）</h3><div id="ov-bad-reason" class="chart" data-chart="ov-bad-reason"></div></div>
+  </div>
+
+  <div class="insight-box" id="ov-insights"></div>
+</div>
+
+<!-- ================= 页2 情感分析 ================= -->
+<div class="page" id="page-sentiment">
+  <div class="grid2">
+    <div class="card"><h3>真实好评词云（高频关键词）</h3><div id="sn-wc-good" class="chart" data-chart="sn-wc-good"></div></div>
+    <div class="card"><h3>中差评词云（问题关键词）</h3><div id="sn-wc-bad" class="chart" data-chart="sn-wc-bad"></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>好评点明细（好评里夸什么）</h3><div class="table-wrap" id="sn-good-table"></div></div>
+    <div class="card"><h3>差评点明细（中差评里骂什么）</h3><div class="table-wrap" id="sn-bad-table"></div></div>
+  </div>
+  <div class="card"><h3>矛盾点发现：一条评论里"某方面好、某方面坏"（共现）</h3>
+    <div id="sn-cooccur"></div>
+  </div>
+</div>
+
+<!-- ================= 页3 商品维度 ================= -->
+<div class="page" id="page-sku">
+  <div class="kpi-row">
+    <div class="kpi-card"><div class="label">规格种类（归一化）</div><div class="value" id="sku-k-spec">-</div></div>
+    <div class="kpi-card"><div class="label">最热规格</div><div class="value" id="sku-k-top">-</div></div>
+    <div class="kpi-card good"><div class="label">口碑最佳规格</div><div class="value" id="sku-k-best">-</div></div>
+    <div class="kpi-card bad"><div class="label">差评最集中规格</div><div class="value" id="sku-k-worst">-</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>SKU 规格评论量分布</h3><div id="sku-dist" class="chart" data-chart="sku-dist"></div></div>
+    <div class="card"><h3>SKU × 情感热力图</h3><div id="sku-heat" class="chart tall" data-chart="sku-heat"></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>各规格口碑排行（真实好评率 / 差评数）</h3><div class="table-wrap" id="sku-rate-table"></div></div>
+    <div class="card"><h3>SKU 卖点后缀曝光 TOP（引流词）</h3><div id="sku-promo" class="chart" data-chart="sku-promo"></div></div>
+  </div>
+</div>
+
+<!-- ================= 页4 时间维度 ================= -->
+<div class="page" id="page-time">
+  <div class="grid2">
+    <div class="card"><h3>月度评论构成堆叠（模板好评 / 真实好评 / 中评 / 差评）</h3><div id="tm-stack" class="chart tall" data-chart="tm-stack"></div></div>
+    <div class="card"><h3>月度真实好评率（%，虚线为区间平均）</h3><div id="tm-rate" class="chart tall" data-chart="tm-rate"></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>一周内评价分布（评价活跃日）</h3><div id="tm-weekday" class="chart" data-chart="tm-weekday"></div></div>
+    <div class="card"><h3>复购信号月度趋势</h3><div id="tm-rep" class="chart" data-chart="tm-rep"></div></div>
+  </div>
+  <div class="insight-box" id="tm-insights"></div>
+</div>
+
+<!-- ================= 页5 用户画像 ================= -->
+<div class="page" id="page-portrait">
+  <div class="grid3">
+    <div class="card"><h3>规格偏好画像（按购买规格）</h3><div id="pt-spec" class="chart short" data-chart="pt-spec"></div></div>
+    <div class="card"><h3>购买场景画像（文本关键词）</h3><div id="pt-scene" class="chart short" data-chart="pt-scene"></div></div>
+    <div class="card"><h3>关注点分群（用户最在意什么）</h3><div id="pt-focus" class="chart short" data-chart="pt-focus"></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>购买场景代表评论</h3><div id="pt-scene-samples"></div></div>
+    <div class="card"><h3>复购信号代表评论（口碑价值用户）</h3><div id="pt-rep-samples"></div></div>
+  </div>
+  <div class="insight-box" id="pt-insights"></div>
+</div>
+
+<div class="footer"></div>
+
+<script>
+const DATA = {"meta": {"source": "商品评论数据.xlsx", "product": "金银花柚子汁13袋", "link": "detail.tmall.com/item.htm?abbucket=11&id=795325331889", "link_url": "https://detail.tmall.com/item.htm?abbucket=11&id=795325331889", "total": 5000, "valid": 1400}, "kpi": {"total": 5000, "template": 3600, "template_rate": 72.0, "good": 957, "mid": 431, "bad": 12, "real_total": 1400, "real_good_rate": 68.4, "overall_good_rate": 91.1, "real_rate": 68.4, "repurchase": 183, "avg_len": 18.7}, "sentiment_pie": [{"name": "真实好评", "value": 957}, {"name": "中评", "value": 431}, {"name": "差评", "value": 12}, {"name": "模板好评(无内容)", "value": 3600}], "good_themes": [{"theme": "复购回购", "count": 161, "rate": 16.8, "samples": ["夏日炎炎加上宝宝吃饭后，多少都有点🔥气 孩子脾气急躁，夜睡不宁，眼圈发红[失望R] 但又不想总给崽子吃💊平时煮的金银花水又麻烦，也不爱喝。 看到了最近风很大的金银花柚子汁，做了功课，选择了金豆芽！配料表干净，0添加香精、色素、防腐剂！只有果", "✨ [产品名称]   用过才懂的「真香」体验！✨  为什么让无数人疯狂打call？这几个细节太戳了——  • 颜值即正义：简约高级的设计，摆在哪都像艺术品，随手拍都能刷爆朋友圈～  • 实力超抗打：[核心功能] 真的绝！[具体场景] 用它直", "在这里选购安全方便快捷💜，快递小哥态度非常好，这个价格非常给力💪，十分推荐，会继续回购很快就到了，全新正品👑，包装很仔细，没有问题🌵值得购买！没有什么味道，用起来还可以😘，没有不舒服的地方😶，所以我还蛮喜欢的 非常好，宝贝很高大上，质量很好"]}, {"theme": "物流发货", "count": 129, "rate": 13.5, "samples": ["不错，喜欢，性价比高，以后会经常光顾发货快，包装严实，商品质量非常好，比专柜便宜很多，客服服务态度也特别好，好评这个是真的好，材料和做工都特别精致，做工真的非常棒，我觉着我可以推荐给我朋友买宝贝收到了，太惊喜了，质量非常好，性价比很高，真是", "发货速度很快，配料表比较干净，金豆芽金银花柚子汁，口感清新，味道独特，非常适合夏天饮用。发货速度很快，配料表比较干净，金豆芽金银花柚子汁，口感清新，味道独特，非常适合夏天饮用。发货速度很快，配料表比较干净，金豆芽金银花柚子汁，口感清新，味道", "在这里选购安全方便快捷💜，快递小哥态度非常好，这个价格非常给力💪，十分推荐，会继续回购很快就到了，全新正品👑，包装很仔细，没有问题🌵值得购买！没有什么味道，用起来还可以😘，没有不舒服的地方😶，所以我还蛮喜欢的 非常好，宝贝很高大上，质量很好"]}, {"theme": "价格实惠", "count": 127, "rate": 13.3, "samples": ["不错，喜欢，性价比高，以后会经常光顾发货快，包装严实，商品质量非常好，比专柜便宜很多，客服服务态度也特别好，好评这个是真的好，材料和做工都特别精致，做工真的非常棒，我觉着我可以推荐给我朋友买宝贝收到了，太惊喜了，质量非常好，性价比很高，真是", "在这里选购安全方便快捷💜，快递小哥态度非常好，这个价格非常给力💪，十分推荐，会继续回购很快就到了，全新正品👑，包装很仔细，没有问题🌵值得购买！没有什么味道，用起来还可以😘，没有不舒服的地方😶，所以我还蛮喜欢的 非常好，宝贝很高大上，质量很好", "因為好，趁着双11有優惠，立即又回购的。日期非常新鮮，是10月的。酸甜適中，成分表可以，味道都好。包裝設計精美，100ml份量也剛好，冰涼喝味道更佳，非常解渴。 这是第N次在网上买东西了，棒棒棒，物美价廉，买的放心，用的开心。购物成了生活不"]}, {"theme": "气味好闻", "count": 82, "rate": 8.6, "samples": ["发货速度很快，配料表比较干净，金豆芽金银花柚子汁，口感清新，味道独特，非常适合夏天饮用。发货速度很快，配料表比较干净，金豆芽金银花柚子汁，口感清新，味道独特，非常适合夏天饮用。发货速度很快，配料表比较干净，金豆芽金银花柚子汁，口感清新，味道", "夏日炎炎加上宝宝吃饭后，多少都有点🔥气 孩子脾气急躁，夜睡不宁，眼圈发红[失望R] 但又不想总给崽子吃💊平时煮的金银花水又麻烦，也不爱喝。 看到了最近风很大的金银花柚子汁，做了功课，选择了金豆芽！配料表干净，0添加香精、色素、防腐剂！只有果", "在这里选购安全方便快捷💜，快递小哥态度非常好，这个价格非常给力💪，十分推荐，会继续回购很快就到了，全新正品👑，包装很仔细，没有问题🌵值得购买！没有什么味道，用起来还可以😘，没有不舒服的地方😶，所以我还蛮喜欢的 非常好，宝贝很高大上，质量很好"]}, {"theme": "包装质感", "count": 70, "rate": 7.3, "samples": ["不错，喜欢，性价比高，以后会经常光顾发货快，包装严实，商品质量非常好，比专柜便宜很多，客服服务态度也特别好，好评这个是真的好，材料和做工都特别精致，做工真的非常棒，我觉着我可以推荐给我朋友买宝贝收到了，太惊喜了，质量非常好，性价比很高，真是", "✨ [产品名称]   用过才懂的「真香」体验！✨  为什么让无数人疯狂打call？这几个细节太戳了——  • 颜值即正义：简约高级的设计，摆在哪都像艺术品，随手拍都能刷爆朋友圈～  • 实力超抗打：[核心功能] 真的绝！[具体场景] 用它直", "在这里选购安全方便快捷💜，快递小哥态度非常好，这个价格非常给力💪，十分推荐，会继续回购很快就到了，全新正品👑，包装很仔细，没有问题🌵值得购买！没有什么味道，用起来还可以😘，没有不舒服的地方😶，所以我还蛮喜欢的 非常好，宝贝很高大上，质量很好"]}, {"theme": "客服服务", "count": 54, "rate": 5.6, "samples": ["不错，喜欢，性价比高，以后会经常光顾发货快，包装严实，商品质量非常好，比专柜便宜很多，客服服务态度也特别好，好评这个是真的好，材料和做工都特别精致，做工真的非常棒，我觉着我可以推荐给我朋友买宝贝收到了，太惊喜了，质量非常好，性价比很高，真是", "在这里选购安全方便快捷💜，快递小哥态度非常好，这个价格非常给力💪，十分推荐，会继续回购很快就到了，全新正品👑，包装很仔细，没有问题🌵值得购买！没有什么味道，用起来还可以😘，没有不舒服的地方😶，所以我还蛮喜欢的 非常好，宝贝很高大上，质量很好", "因為好，趁着双11有優惠，立即又回购的。日期非常新鮮，是10月的。酸甜適中，成分表可以，味道都好。包裝設計精美，100ml份量也剛好，冰涼喝味道更佳，非常解渴。 这是第N次在网上买东西了，棒棒棒，物美价廉，买的放心，用的开心。购物成了生活不"]}, {"theme": "肤感质地", "count": 19, "rate": 2.0, "samples": ["这款金豆涯金银花柚子汁真的太赞了！入口清甜爽口，金银花的清香和柚子的果香完美融合，酸甜适中，一点也不腻。夏天冰镇后喝特别解暑，平时吃火锅、烧烤后来一瓶，清爽又解腻。配料干净，喝着放心。孩子也很爱喝，比饮料健康多了。已经回购好几次，全家都喜欢", "这款金银花柚子汁真是养生界的“小清新”！13袋礼盒装，满满都是自然的味道。柚子的酸甜搭配金银花的清香，每一口都像是在喝春天的风。不仅味道绝绝子，而且养生效果也是杠杠的，喝完感觉整个人都清爽了！无论是自用还是送礼，都是绝佳选择，强烈推荐！", "这款金银花柚子汁真是宝藏饮品！13袋礼盒装，性价比超高，每天一袋，清爽又滋润。金银花的清香和柚子的酸甜完美融合，口感清爽不腻，喝一口感觉整个人都精神了！特别适合夏天，冰镇一下，简直是解暑神器。包装也很精美，送礼自用两相宜，强烈推荐！"]}, {"theme": "保湿滋润", "count": 2, "rate": 0.2, "samples": ["这款金银花柚子汁真是宝藏饮品！13袋礼盒装，性价比超高，每天一袋，清爽又滋润。金银花的清香和柚子的酸甜完美融合，口感清爽不腻，喝一口感觉整个人都精神了！特别适合夏天，冰镇一下，简直是解暑神器。包装也很精美，送礼自用两相宜，强烈推荐！", "不错不错～大人孩子都可以喝～秋天了，需要多补水吖～"]}, {"theme": "温和不刺激", "count": 2, "rate": 0.2, "samples": ["很满意的一次购物，商家服务好，发货神速，物流也很给力，宝贝收到后非常喜欢，买得放心，用得安心！"]}, {"theme": "功效改善", "count": 0, "rate": 0.0, "samples": []}], "bad_reasons": [{"reason": "客服售后", "count": 2, "rate": 16.7, "samples": ["柚汁具有一定的促进消化的作用，其所含的果酸能够刺激胃酸分泌，帮助消化食物。此外，它还有助于降低胆固醇水平，对心血管健康有一定的好处，西柚汁是一种具有独特风味和丰富营养价值的饮品，但因其酸度较高，可能不是所有人都能接受。不过，对于喜欢清新酸味", "客服听不懂人话，各种态度反复，先是说补20购物券，换个客服结果告诉我店铺券，这也行我接受。拍之前说补20现金，确认收货后换个客服说24小时登记打款，等了48小时也没到账，又换了个客服说只支持售后退款形式补20，那我就坚决不能同意了，一旦这样"]}, {"reason": "过敏刺激", "count": 1, "rate": 8.3, "samples": ["柚汁具有一定的促进消化的作用，其所含的果酸能够刺激胃酸分泌，帮助消化食物。此外，它还有助于降低胆固醇水平，对心血管健康有一定的好处，西柚汁是一种具有独特风味和丰富营养价值的饮品，但因其酸度较高，可能不是所有人都能接受。不过，对于喜欢清新酸味"]}, {"reason": "效果不佳", "count": 1, "rate": 8.3, "samples": ["直播间的券没用上，也不能价保！"]}, {"reason": "疑似假货", "count": 1, "rate": 8.3, "samples": ["包装都破了，感觉像假货一样不敢喝"]}], "cooccur": [{"good": "客服服务", "bad": "客服售后", "count": 40}, {"good": "物流发货", "bad": "客服售后", "count": 34}, {"good": "价格实惠", "bad": "客服售后", "count": 27}, {"good": "包装质感", "bad": "客服售后", "count": 10}, {"good": "复购回购", "bad": "客服售后", "count": 6}, {"good": "价格实惠", "bad": "价格偏贵", "count": 4}, {"good": "气味好闻", "bad": "客服售后", "count": 3}, {"good": "温和不刺激", "bad": "气味不佳", "count": 2}, {"good": "复购回购", "bad": "价格偏贵", "count": 2}, {"good": "肤感质地", "bad": "效果不佳", "count": 1}, {"good": "肤感质地", "bad": "肤感不佳", "count": 1}, {"good": "肤感质地", "bad": "价格偏贵", "count": 1}, {"good": "包装质感", "bad": "疑似假货", "count": 1}, {"good": "复购回购", "bad": "过敏刺激", "count": 1}, {"good": "客服服务", "bad": "过敏刺激", "count": 1}], "monthly": [{"month": "2024-09", "count": 353, "good": 66, "mid": 25, "bad": 0, "template": 262, "real_rate": 72.5}, {"month": "2024-10", "count": 495, "good": 82, "mid": 36, "bad": 3, "template": 374, "real_rate": 67.8}, {"month": "2024-11", "count": 471, "good": 93, "mid": 45, "bad": 0, "template": 333, "real_rate": 67.4}, {"month": "2024-12", "count": 155, "good": 32, "mid": 13, "bad": 0, "template": 110, "real_rate": 71.1}, {"month": "2025-01", "count": 44, "good": 2, "mid": 7, "bad": 0, "template": 35, "real_rate": 22.2}, {"month": "2025-02", "count": 86, "good": 8, "mid": 9, "bad": 0, "template": 69, "real_rate": 47.1}, {"month": "2025-03", "count": 263, "good": 38, "mid": 24, "bad": 0, "template": 201, "real_rate": 61.3}, {"month": "2025-04", "count": 314, "good": 47, "mid": 23, "bad": 0, "template": 244, "real_rate": 67.1}, {"month": "2025-05", "count": 243, "good": 31, "mid": 21, "bad": 0, "template": 191, "real_rate": 59.6}, {"month": "2025-06", "count": 313, "good": 52, "mid": 28, "bad": 1, "template": 232, "real_rate": 64.2}, {"month": "2025-07", "count": 235, "good": 30, "mid": 22, "bad": 0, "template": 183, "real_rate": 57.7}, {"month": "2025-08", "count": 152, "good": 19, "mid": 18, "bad": 0, "template": 115, "real_rate": 51.4}, {"month": "2025-09", "count": 107, "good": 16, "mid": 7, "bad": 1, "template": 83, "real_rate": 66.7}, {"month": "2025-10", "count": 112, "good": 11, "mid": 11, "bad": 1, "template": 89, "real_rate": 47.8}, {"month": "2025-11", "count": 198, "good": 38, "mid": 14, "bad": 0, "template": 146, "real_rate": 73.1}, {"month": "2025-12", "count": 68, "good": 14, "mid": 7, "bad": 0, "template": 47, "real_rate": 66.7}, {"month": "2026-01", "count": 92, "good": 11, "mid": 8, "bad": 0, "template": 73, "real_rate": 57.9}, {"month": "2026-02", "count": 86, "good": 11, "mid": 6, "bad": 0, "template": 69, "real_rate": 64.7}, {"month": "2026-03", "count": 84, "good": 19, "mid": 6, "bad": 0, "template": 59, "real_rate": 76.0}, {"month": "2026-04", "count": 129, "good": 34, "mid": 11, "bad": 1, "template": 83, "real_rate": 73.9}, {"month": "2026-05", "count": 289, "good": 83, "mid": 23, "bad": 2, "template": 181, "real_rate": 76.9}, {"month": "2026-06", "count": 294, "good": 96, "mid": 32, "bad": 2, "template": 164, "real_rate": 73.8}, {"month": "2026-07", "count": 203, "good": 57, "mid": 21, "bad": 0, "template": 125, "real_rate": 73.1}, {"month": "2026-08", "count": 158, "good": 52, "mid": 8, "bad": 1, "template": 97, "real_rate": 85.2}, {"month": "2026-09", "count": 56, "good": 15, "mid": 6, "bad": 0, "template": 35, "real_rate": 71.4}], "weekday": [{"name": "周一", "value": 759}, {"name": "周二", "value": 773}, {"name": "周三", "value": 694}, {"name": "周四", "value": 697}, {"name": "周五", "value": 676}, {"name": "周六", "value": 650}, {"name": "周日", "value": 751}], "sku_dist": [{"name": "其他规格", "value": 5000}], "sku_heat": {"skus": ["其他规格"], "types": ["真实好评", "中评", "差评", "模板好评(无内容)"], "matrix": [[957, 431, 12, 3600]]}, "sku_rate": [{"sku": "其他规格", "total": 5000, "real_rate": 68.4, "bad_n": 12}], "promo": [{"name": "1箱礼盒装", "value": 1029}, {"name": "13袋礼盒", "value": 707}, {"name": "2箱囤货装", "value": 446}, {"name": "礼盒", "value": 234}, {"name": "新品尝鲜", "value": 222}, {"name": "囤货装", "value": 215}, {"name": "清火优选", "value": 45}, {"name": "消食优选", "value": 12}, {"name": "青柠味", "value": 8}, {"name": "超高性价比", "value": 8}], "repurchase": {"count": 183, "samples": ["夏日炎炎加上宝宝吃饭后，多少都有点🔥气 孩子脾气急躁，夜睡不宁，眼圈发红[失望R] 但又不想总给崽子吃💊平时煮的金银花水又麻烦，也不爱喝。 看到了最近风很大的金银花柚子汁，做了功课，选择了金豆芽！配料表干净，0添加香精、色素、防腐剂！只有果", "✨ [产品名称]   用过才懂的「真香」体验！✨  为什么让无数人疯狂打call？这几个细节太戳了——  • 颜值即正义：简约高级的设计，摆在哪都像艺术品，随手拍都能刷爆朋友圈～  • 实力超抗打：[核心功能] 真的绝！[具体场景] 用它直", "在这里选购安全方便快捷💜，快递小哥态度非常好，这个价格非常给力💪，十分推荐，会继续回购很快就到了，全新正品👑，包装很仔细，没有问题🌵值得购买！没有什么味道，用起来还可以😘，没有不舒服的地方😶，所以我还蛮喜欢的 非常好，宝贝很高大上，质量很好", "因為好，趁着双11有優惠，立即又回购的。日期非常新鮮，是10月的。酸甜適中，成分表可以，味道都好。包裝設計精美，100ml份量也剛好，冰涼喝味道更佳，非常解渴。 这是第N次在网上买东西了，棒棒棒，物美价廉，买的放心，用的开心。购物成了生活不", "柚汁具有一定的促进消化的作用，其所含的果酸能够刺激胃酸分泌，帮助消化食物。此外，它还有助于降低胆固醇水平，对心血管健康有一定的好处，西柚汁是一种具有独特风味和丰富营养价值的饮品，但因其酸度较高，可能不是所有人都能接受。不过，对于喜欢清新酸味", "买这个饮料也买了5到6次了，这次收到货，小孩打开一看，纸箱里面全都是虫子和虫*，怕活虫到处爬，立马喷了杀虫剂，找商家申请退款，商家居然拒绝了，虽然平台后面也退了货款，商家这样的态度，我觉得消费者的权利没有得到保证，买到的商品有质量问题，商家"], "trend": [{"month": "2024-09", "count": 14}, {"month": "2024-10", "count": 9}, {"month": "2024-11", "count": 14}, {"month": "2024-12", "count": 6}, {"month": "2025-01", "count": 2}, {"month": "2025-02", "count": 0}, {"month": "2025-03", "count": 11}, {"month": "2025-04", "count": 6}, {"month": "2025-05", "count": 5}, {"month": "2025-06", "count": 4}, {"month": "2025-07", "count": 4}, {"month": "2025-08", "count": 3}, {"month": "2025-09", "count": 1}, {"month": "2025-10", "count": 4}, {"month": "2025-11", "count": 6}, {"month": "2025-12", "count": 6}, {"month": "2026-01", "count": 1}, {"month": "2026-02", "count": 3}, {"month": "2026-03", "count": 2}, {"month": "2026-04", "count": 9}, {"month": "2026-05", "count": 15}, {"month": "2026-06", "count": 25}, {"month": "2026-07", "count": 15}, {"month": "2026-08", "count": 14}, {"month": "2026-09", "count": 4}]}, "portrait": {"scene": [{"name": "夏季清爽", "count": 56, "samples": ["发货速度很快，配料表比较干净，金豆芽金银花柚子汁，口感清新，味道独特，非常适合夏天饮用。发货速度很快，配料表比较干净，金豆芽金银花柚子汁，口感清新，味道独特，非常适合夏天饮用。发货速度很快，配料表比较干净，金豆芽金银花柚子汁，口感清新，味道", "这款金豆涯金银花柚子汁真的太赞了！入口清甜爽口，金银花的清香和柚子的果香完美融合，酸甜适中，一点也不腻。夏天冰镇后喝特别解暑，平时吃火锅、烧烤后来一瓶，清爽又解腻。配料干净，喝着放心。孩子也很爱喝，比饮料健康多了。已经回购好几次，全家都喜欢"]}, {"name": "学生党/平价", "count": 54, "samples": ["不错，喜欢，性价比高，以后会经常光顾发货快，包装严实，商品质量非常好，比专柜便宜很多，客服服务态度也特别好，好评这个是真的好，材料和做工都特别精致，做工真的非常棒，我觉着我可以推荐给我朋友买宝贝收到了，太惊喜了，质量非常好，性价比很高，真是", "这个价格还是很划算的。经济实惠，物美价廉，质量非常好，跟卖家描述的完全一致。 非常满意，完全超出期望值，超级划算，性价比高，购物比实体店便宜多了，很满意的一次网购。 希望卖家生意越来越兴隆，物流也很快，包装很结实。 六星好评，多一星不怕你骄"]}, {"name": "送长辈/父母", "count": 1, "samples": []}, {"name": "换季干燥", "count": 1, "samples": ["今年一直喝，宝宝爱喝，管用，夏天全靠它，冬天家里干燥，大人小孩一起喝"]}], "focus": [{"name": "物流服务型", "count": 180, "rate": 12.9}, {"name": "价格敏感型", "count": 150, "rate": 10.7}, {"name": "效果导向型", "count": 40, "rate": 2.9}, {"name": "肤感敏感型", "count": 19, "rate": 1.4}, {"name": "温和安全型", "count": 1, "rate": 0.1}], "spec_type": [{"name": "尝鲜型(1瓶装)", "value": 0}, {"name": "标准型(2瓶装)", "value": 0}, {"name": "深度装(3瓶装及以上)", "value": 0}, {"name": "套装组合", "value": 5000}]}, "wordcloud": {"good": [{"name": "回购", "value": 128}, {"name": "味道", "value": 94}, {"name": "包装", "value": 87}, {"name": "物流", "value": 55}, {"name": "推荐", "value": 38}, {"name": "实惠", "value": 32}, {"name": "效果", "value": 30}, {"name": "正品", "value": 26}, {"name": "划算", "value": 23}, {"name": "清爽", "value": 19}, {"name": "性价比", "value": 17}, {"name": "好用", "value": 2}, {"name": "补水", "value": 1}, {"name": "滋润", "value": 1}], "bad": [{"name": "退款", "value": 4}, {"name": "垃圾", "value": 3}, {"name": "客服", "value": 2}, {"name": "刺激", "value": 1}, {"name": "没用", "value": 1}, {"name": "退货", "value": 1}, {"name": "假货", "value": 1}, {"name": "不会再买", "value": 1}]}, "len_dist": [{"name": "1-10字", "value": 631}, {"name": "11-20字", "value": 406}, {"name": "21-40字", "value": 256}, {"name": "40字以上", "value": 107}], "samples": {"good": ["不错，喜欢，性价比高，以后会经常光顾发货快，包装严实，商品质量非常好，比专柜便宜很多，客服服务态度也特别好，好评这个是真的好，材料和做工都特别精致，做工真的非常棒，我觉着我可以推荐给我朋友买宝贝收到了，太惊喜了，质量非常好，性价比很高，真是", "发货速度很快，配料表比较干净，金豆芽金银花柚子汁，口感清新，味道独特，非常适合夏天饮用。发货速度很快，配料表比较干净，金豆芽金银花柚子汁，口感清新，味道独特，非常适合夏天饮用。发货速度很快，配料表比较干净，金豆芽金银花柚子汁，口感清新，味道", "夏日炎炎加上宝宝吃饭后，多少都有点🔥气 孩子脾气急躁，夜睡不宁，眼圈发红[失望R] 但又不想总给崽子吃💊平时煮的金银花水又麻烦，也不爱喝。 看到了最近风很大的金银花柚子汁，做了功课，选择了金豆芽！配料表干净，0添加香精、色素、防腐剂！只有果", "✨ [产品名称]   用过才懂的「真香」体验！✨  为什么让无数人疯狂打call？这几个细节太戳了——  • 颜值即正义：简约高级的设计，摆在哪都像艺术品，随手拍都能刷爆朋友圈～  • 实力超抗打：[核心功能] 真的绝！[具体场景] 用它直", "在这里选购安全方便快捷💜，快递小哥态度非常好，这个价格非常给力💪，十分推荐，会继续回购很快就到了，全新正品👑，包装很仔细，没有问题🌵值得购买！没有什么味道，用起来还可以😘，没有不舒服的地方😶，所以我还蛮喜欢的 非常好，宝贝很高大上，质量很好", "因為好，趁着双11有優惠，立即又回购的。日期非常新鮮，是10月的。酸甜適中，成分表可以，味道都好。包裝設計精美，100ml份量也剛好，冰涼喝味道更佳，非常解渴。 这是第N次在网上买东西了，棒棒棒，物美价廉，买的放心，用的开心。购物成了生活不"], "mid": ["箱子质量太差劲，买了两箱，放在一个大箱子里，觉得两箱一起搬有点重就拆开直接拎里面的带提手的箱子，还没拎出快递站就从提手处就断了，凑合搬到电瓶车上到家了，拎下来刚走十几步又从底部开了口掉一地，服了", "包装质量那就一个字：差！有多差呢，就是我连个图片都没有，外面的纸箱已经碎了，里面的纸箱也散了，一袋袋全散出来了，根本没有任何包装能拿回来，无从下手的拿，还是驿站的人给我拿个塑料袋", "刚拿回来，孩子没两天就喝完了！小孩之前断断续续咳嗽一阵子，药也吃了，好几天，又开始咳嗽，喝了一箱之后，突然没听见咳嗽了，不知道是不是清热去火的缘故，所以又买了两箱～～", "便宜就是便宜，双十一特别合适，只不过充值金搞的我好晕，不像别的店面充值金和膨胀金等比例消耗，而是先花你的膨胀金赠送部分，所以多充并不会合适，能用掉多少充多少就好", "没有见过这么离谱的包装，外面箱子完全破了，里面箱子也破了。。。拿个快递。一袋一袋都掉下来的，弄得人好无语。。。。。而且弄的脏兮兮的好埋汰。。。", "定个量感觉比之前越来越少了，我今天我记得之前这个20袋吧，买了两箱给孩子屯着，夏天了，大人喝饮料到时候，他们就喝这个吧。"], "bad": ["柚汁具有一定的促进消化的作用，其所含的果酸能够刺激胃酸分泌，帮助消化食物。此外，它还有助于降低胆固醇水平，对心血管健康有一定的好处，西柚汁是一种具有独特风味和丰富营养价值的饮品，但因其酸度较高，可能不是所有人都能接受。不过，对于喜欢清新酸味", "买这个饮料也买了5到6次了，这次收到货，小孩打开一看，纸箱里面全都是虫子和虫*，怕活虫到处爬，立马喷了杀虫剂，找商家申请退款，商家居然拒绝了，虽然平台后面也退了货款，商家这样的态度，我觉得消费者的权利没有得到保证，买到的商品有质量问题，商家", "客服听不懂人话，各种态度反复，先是说补20购物券，换个客服结果告诉我店铺券，这也行我接受。拍之前说补20现金，确认收货后换个客服说24小时登记打款，等了48小时也没到账，又换了个客服说只支持售后退款形式补20，那我就坚决不能同意了，一旦这样", "收货地址和备注都是摆设 破韵达不是快件烂了就是送错地方了 地址小区名字都不一样的还送错了地方 真无语😑 你家就不能放弃这个垃圾快递吗", "收货发现，每箱纸损坏了，每小袋太土旧了！那店勉强申请退款10元，还不够！买过100多元，应该给赔偿半价！", "这家是假的，难喝死了，这款实体店没有的，真的这款是睁开眼睛的，实体店都买的到，大家千万不要踩雷了。"]}};
+const COLOR = { good: '#22c55e', mid: '#f59e0b', bad: '#ef4444', template: '#cbd5e1', primary: '#6d5ef7', purple: '#a855f7' };
+const charts = {};
+const rendered = {};
+
+/* ---------- 工具 ---------- */
+function $(id) { return document.getElementById(id); }
+function renderChart(id, option) {
+  if (!rendered[id]) { charts[id] = echarts.init($(id)); rendered[id] = true; }
+  charts[id].setOption(option);
+}
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function trunc(s, n) { s = String(s || ''); return s.length > n ? s.slice(0, n) + '…' : s; }
+
+/* ---------- Tab 切换：首次显示才渲染，之后 resize ---------- */
+function switchPage(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  $('page-' + name).classList.add('active');
+  const page = $('page-' + name);
+  page.querySelectorAll('[data-chart]').forEach(c => renderChart(c.id, OPTIONS[c.id]()));
+  // 只 resize 当前页可见图表（隐藏页容器宽度为0，resize 会把 canvas 压扁成 125px，切勿全局 resize）
+  page.querySelectorAll('[data-chart]').forEach(c => charts[c.id] && charts[c.id].resize());
+}
+
+/* ---------- 各图表配置 ---------- */
+const OPTIONS = {};
+
+/* ============ 页1 总览 ============ */
+OPTIONS['ov-pie'] = function () {
+  const pie = DATA.sentiment_pie;
+  return {
+    color: [COLOR.good, COLOR.mid, COLOR.bad, COLOR.template],
+    tooltip: { trigger: 'item', formatter: p => p.name + '：' + p.value + ' 条（' + p.percent + '%）' },
+    legend: { bottom: 0, textStyle: { fontSize: 12 } },
+    series: [{
+      type: 'pie', radius: ['42%', '68%'], center: ['50%', '44%'],
+      itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+      label: { formatter: '{b}\n{d}%', fontSize: 11 },
+      data: pie
+    }]
+  };
+};
+OPTIONS['ov-trend'] = function () {
+  const m = DATA.monthly;
+  const months = m.map(x => x.month.slice(0, 7));
+  return {
+    color: [COLOR.primary, COLOR.purple],
+    tooltip: { trigger: 'axis' },
+    legend: { top: 0, data: ['评论数', '真实好评率'] },
+    grid: { left: 50, right: 50, top: 36, bottom: 28 },
+    xAxis: { type: 'category', data: months, axisLabel: { fontSize: 10, interval: 2 } },
+    yAxis: [
+      { type: 'value', name: '条数', axisLabel: { fontSize: 10 } },
+      { type: 'value', name: '好评率%', min: 80, max: 102, axisLabel: { fontSize: 10 }, splitLine: { show: false } }
+    ],
+    series: [
+      { name: '评论数', type: 'bar', data: m.map(x => x.count), barWidth: '55%',
+        itemStyle: { borderRadius: [4, 4, 0, 0], color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+          colorStops: [{ offset: 0, color: '#8b5cf6' }, { offset: 1, color: '#c4b5fd' }] } } },
+      { name: '真实好评率', type: 'line', yAxisIndex: 1, data: m.map(x => x.real_rate),
+        smooth: true, symbolSize: 5, lineStyle: { width: 2.5 },
+        areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+          colorStops: [{ offset: 0, color: 'rgba(109,94,247,.25)' }, { offset: 1, color: 'rgba(109,94,247,.02)' }] } } }
+    ]
+  };
+};
+OPTIONS['ov-good-theme'] = function () {
+  const t = DATA.good_themes.slice(0, 8).slice().reverse();
+  return {
+    tooltip: { trigger: 'axis', formatter: p => p[0].name + '：' + p[0].value + ' 条' },
+    grid: { left: 70, right: 30, top: 10, bottom: 24 },
+    xAxis: { type: 'value', axisLabel: { fontSize: 10 } },
+    yAxis: { type: 'category', data: t.map(x => x.theme), axisLabel: { fontSize: 12 } },
+    series: [{
+      type: 'bar', data: t.map(x => x.count), barWidth: '58%',
+      label: { show: true, position: 'right', fontSize: 11 },
+      itemStyle: { borderRadius: [0, 6, 6, 0], color: { type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
+        colorStops: [{ offset: 0, color: '#6d5ef7' }, { offset: 1, color: '#a855f7' }] } }
+    }]
+  };
+};
+OPTIONS['ov-bad-reason'] = function () {
+  const t = DATA.bad_reasons.slice(0, 7).slice().reverse();
+  return {
+    tooltip: { trigger: 'axis', formatter: p => p[0].name + '：' + p[0].value + ' 条' },
+    grid: { left: 70, right: 30, top: 10, bottom: 24 },
+    xAxis: { type: 'value', axisLabel: { fontSize: 10 } },
+    yAxis: { type: 'category', data: t.map(x => x.reason), axisLabel: { fontSize: 12 } },
+    series: [{
+      type: 'bar', data: t.map(x => x.count), barWidth: '58%',
+      label: { show: true, position: 'right', fontSize: 11 },
+      itemStyle: { borderRadius: [0, 6, 6, 0], color: { type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
+        colorStops: [{ offset: 0, color: '#f59e0b' }, { offset: 1, color: '#ef4444' }] } }
+    }]
+  };
+};
+
+/* ============ 页2 情感分析 ============ */
+OPTIONS['sn-wc-good'] = function () {
+  return {
+    tooltip: { formatter: p => p.name + '：' + p.value + ' 次' },
+    series: [{
+      type: 'wordCloud', shape: 'circle', width: '96%', height: '92%',
+      sizeRange: [14, 64], rotationRange: [0, 0], gridSize: 6,
+      drawOutOfBound: false, textStyle: { fontWeight: 600 },
+      emphasis: { textStyle: { color: '#6d5ef7' } },
+      data: DATA.wordcloud.good
+    }]
+  };
+};
+OPTIONS['sn-wc-bad'] = function () {
+  return {
+    tooltip: { formatter: p => p.name + '：' + p.value + ' 次' },
+    series: [{
+      type: 'wordCloud', shape: 'circle', width: '96%', height: '92%',
+      sizeRange: [14, 56], rotationRange: [0, 0], gridSize: 6,
+      drawOutOfBound: false, textStyle: { fontWeight: 600, color: '#ef4444' },
+      emphasis: { textStyle: { color: '#7f1d1d' } },
+      data: DATA.wordcloud.bad
+    }]
+  };
+};
+
+/* ============ 页3 商品维度 ============ */
+OPTIONS['sku-dist'] = function () {
+  const d = DATA.sku_dist;
+  return {
+    tooltip: { trigger: 'axis', formatter: p => p[0].name + '：' + p[0].value + ' 条' },
+    grid: { left: 60, right: 30, top: 10, bottom: 24 },
+    xAxis: { type: 'category', data: d.map(x => x.name), axisLabel: { fontSize: 12 } },
+    yAxis: { type: 'value', axisLabel: { fontSize: 10 } },
+    series: [{
+      type: 'bar', data: d.map(x => x.value), barWidth: '50%',
+      label: { show: true, position: 'top', fontSize: 11 },
+      itemStyle: { borderRadius: [6, 6, 0, 0], color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+        colorStops: [{ offset: 0, color: '#6d5ef7' }, { offset: 1, color: '#a78bfa' }] } }
+    }]
+  };
+};
+OPTIONS['sku-heat'] = function () {
+  const h = DATA.sku_heat;
+  const maxV = Math.max(...h.matrix.flat());
+  return {
+    tooltip: { formatter: p => h.skus[p.value[0]] + ' × ' + h.types[p.value[1]] + '：' + p.value[2] + ' 条' },
+    grid: { left: 90, right: 30, top: 30, bottom: 50 },
+    xAxis: { type: 'category', data: h.skus, splitArea: { show: true }, axisLabel: { fontSize: 12 } },
+    yAxis: { type: 'category', data: h.types, splitArea: { show: true }, axisLabel: { fontSize: 12 } },
+    visualMap: {
+      min: 0, max: maxV, calculable: false, orient: 'horizontal', left: 'center', bottom: 4,
+      inRange: { color: ['#ede9fe', '#a78bfa', '#6d5ef7', '#4338ca'] }, textStyle: { fontSize: 10 }
+    },
+    series: [{
+      type: 'heatmap', data: h.matrix.flatMap((row, i) => row.map((v, j) => [i, j, v])),
+      label: { show: true, fontSize: 10 }, itemStyle: { borderColor: '#fff', borderWidth: 2, borderRadius: 4 },
+      emphasis: { itemStyle: { shadowBlur: 8, shadowColor: 'rgba(0,0,0,.2)' } }
+    }]
+  };
+};
+OPTIONS['sku-promo'] = function () {
+  const d = DATA.promo.slice(0, 8).slice().reverse();
+  return {
+    tooltip: { trigger: 'axis', formatter: p => p[0].name + '：' + p[0].value + ' 条' },
+    grid: { left: 90, right: 30, top: 10, bottom: 24 },
+    xAxis: { type: 'value', axisLabel: { fontSize: 10 } },
+    yAxis: { type: 'category', data: d.map(x => x.name), axisLabel: { fontSize: 11 } },
+    series: [{
+      type: 'bar', data: d.map(x => x.value), barWidth: '58%',
+      label: { show: true, position: 'right', fontSize: 11 },
+      itemStyle: { borderRadius: [0, 6, 6, 0], color: { type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
+        colorStops: [{ offset: 0, color: '#8b5cf6' }, { offset: 1, color: '#38bdf8' }] } }
+    }]
+  };
+};
+
+/* ============ 页4 时间维度 ============ */
+OPTIONS['tm-stack'] = function () {
+  const m = DATA.monthly;
+  const months = m.map(x => x.month.slice(0, 7));
+  return {
+    color: [COLOR.template, COLOR.good, COLOR.mid, COLOR.bad],
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    legend: { top: 0, data: ['模板好评', '真实好评', '中评', '差评'] },
+    grid: { left: 50, right: 20, top: 36, bottom: 28 },
+    xAxis: { type: 'category', data: months, axisLabel: { fontSize: 10, interval: 2 } },
+    yAxis: { type: 'value', axisLabel: { fontSize: 10 } },
+    series: [
+      { name: '模板好评', type: 'bar', stack: 't', data: m.map(x => x.template), itemStyle: { color: '#cbd5e1' } },
+      { name: '真实好评', type: 'bar', stack: 't', data: m.map(x => x.good), itemStyle: { color: '#22c55e' } },
+      { name: '中评', type: 'bar', stack: 't', data: m.map(x => x.mid), itemStyle: { color: '#f59e0b' } },
+      { name: '差评', type: 'bar', stack: 't', data: m.map(x => x.bad), itemStyle: { color: '#ef4444' } }
+    ]
+  };
+};
+OPTIONS['tm-rate'] = function () {
+  const m = DATA.monthly;
+  const months = m.map(x => x.month.slice(0, 7));
+  const rates = m.map(x => x.real_rate);
+  const avg = rates.filter(r => r != null).reduce((a, b) => a + b, 0) / rates.filter(r => r != null).length;
+  return {
+    tooltip: { trigger: 'axis', formatter: p => p[0].name + '<br/>真实好评率：' + (p[0].value ?? '-') + '%' },
+    grid: { left: 50, right: 20, top: 30, bottom: 28 },
+    xAxis: { type: 'category', data: months, axisLabel: { fontSize: 10, interval: 2 } },
+    yAxis: { type: 'value', min: 85, max: 102, axisLabel: { fontSize: 10, formatter: '{value}%' } },
+    series: [{
+      type: 'line', data: rates, smooth: true, symbolSize: 6,
+      lineStyle: { width: 2.5, color: '#6d5ef7' }, itemStyle: { color: '#6d5ef7' },
+      areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+        colorStops: [{ offset: 0, color: 'rgba(109,94,247,.3)' }, { offset: 1, color: 'rgba(109,94,247,.03)' }] } },
+      markLine: { data: [{ yAxis: avg, name: '两年平均' }], lineStyle: { color: '#a855f7', type: 'dashed' },
+        label: { formatter: '平均 ' + avg.toFixed(1) + '%', fontSize: 10 } }
+    }]
+  };
+};
+OPTIONS['tm-weekday'] = function () {
+  const d = DATA.weekday;
+  return {
+    tooltip: { trigger: 'axis', formatter: p => p[0].name + '：' + p[0].value + ' 条' },
+    grid: { left: 45, right: 20, top: 30, bottom: 24 },
+    xAxis: { type: 'category', data: d.map(x => x.name), axisLabel: { fontSize: 12 } },
+    yAxis: { type: 'value', axisLabel: { fontSize: 10 } },
+    series: [{
+      type: 'bar', data: d.map(x => x.value), barWidth: '50%',
+      itemStyle: { borderRadius: [6, 6, 0, 0], color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+        colorStops: [{ offset: 0, color: '#8b5cf6' }, { offset: 1, color: '#c4b5fd' }] } }
+    }]
+  };
+};
+OPTIONS['tm-rep'] = function () {
+  const m = DATA.repurchase.trend;
+  const months = m.map(x => x.month.slice(0, 7));
+  return {
+    tooltip: { trigger: 'axis', formatter: p => p[0].name + '：' + p[0].value + ' 条' },
+    grid: { left: 45, right: 20, top: 30, bottom: 28 },
+    xAxis: { type: 'category', data: months, axisLabel: { fontSize: 10, interval: 2 } },
+    yAxis: { type: 'value', axisLabel: { fontSize: 10 } },
+    series: [{
+      type: 'bar', data: m.map(x => x.count), barWidth: '55%',
+      itemStyle: { borderRadius: [6, 6, 0, 0], color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+        colorStops: [{ offset: 0, color: '#6d5ef7' }, { offset: 1, color: '#a78bfa' }] } }
+    }]
+  };
+};
+
+/* ============ 页5 用户画像 ============ */
+OPTIONS['pt-spec'] = function () {
+  const d = DATA.portrait.spec_type;
+  return {
+    color: ['#6d5ef7', '#a855f7', '#38bdf8'],
+    tooltip: { trigger: 'item', formatter: p => p.name + '：' + p.value + ' 条（' + p.percent + '%）' },
+    legend: { bottom: 0, textStyle: { fontSize: 11 } },
+    series: [{
+      type: 'pie', radius: ['40%', '66%'], center: ['50%', '44%'],
+      itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+      label: { formatter: '{b}\n{d}%', fontSize: 11 }, data: d
+    }]
+  };
+};
+OPTIONS['pt-scene'] = function () {
+  const d = DATA.portrait.scene.slice().reverse();
+  return {
+    tooltip: { trigger: 'axis', formatter: p => p[0].name + '：' + p[0].value + ' 条' },
+    grid: { left: 80, right: 30, top: 10, bottom: 24 },
+    xAxis: { type: 'value', axisLabel: { fontSize: 10 } },
+    yAxis: { type: 'category', data: d.map(x => x.name), axisLabel: { fontSize: 12 } },
+    series: [{
+      type: 'bar', data: d.map(x => x.count), barWidth: '52%',
+      label: { show: true, position: 'right', fontSize: 11 },
+      itemStyle: { borderRadius: [0, 6, 6, 0], color: { type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
+        colorStops: [{ offset: 0, color: '#6d5ef7' }, { offset: 1, color: '#38bdf8' }] } }
+    }]
+  };
+};
+OPTIONS['pt-focus'] = function () {
+  const d = DATA.portrait.focus;
+  return {
+    color: ['#6d5ef7', '#a855f7', '#38bdf8', '#22c55e'],
+    tooltip: { trigger: 'item', formatter: p => p.name + '：' + p.value + ' 条（' + p.percent + '%）' },
+    legend: { bottom: 0, textStyle: { fontSize: 11 } },
+    series: [{
+      type: 'pie', radius: ['38%', '64%'], center: ['50%', '44%'],
+      itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+      label: { formatter: '{b}\n{d}%', fontSize: 10.5 },
+      // 注意：饼图 data 需要 {name, value}，portrait.focus 字段是 count，需转换
+      data: d.map(x => ({ name: x.name, value: x.count }))
+    }]
+  };
+};
+
+/* ---------- 表格渲染 ---------- */
+function renderGoodTable() {
+  const rows = DATA.good_themes.map(t => `
+    <tr><td><b>${t.theme}</b></td><td>${t.count} 条</td><td>${t.rate}%</td>
+    <td class="sample">${esc(trunc(t.samples[0] || '—', 60))}</td></tr>`).join('');
+  $('sn-good-table').innerHTML = `<table class="ov-table">
+    <tr><th>好评点</th><th>命中数</th><th>命中率</th><th>代表评论</th></tr>${rows}</table>`;
+}
+function renderBadTable() {
+  const rows = DATA.bad_reasons.map(t => `
+    <tr><td><b>${t.reason}</b></td><td>${t.count} 条</td><td>${t.rate}%</td>
+    <td class="sample">${esc(trunc(t.samples[0] || '—', 60))}</td></tr>`).join('');
+  $('sn-bad-table').innerHTML = `<table class="ov-table">
+    <tr><th>差评点</th><th>命中数</th><th>占比</th><th>代表评论</th></tr>${rows}</table>`;
+}
+function renderSkuRateTable() {
+  const rows = DATA.sku_rate.map(s => `
+    <tr><td><b>${s.sku}</b></td><td>${s.total} 条</td>
+    <td>${s.real_rate}%</td><td>${s.bad_n > 0 ? '<span class="badge bad">' + s.bad_n + ' 条</span>' : '<span class="badge good">0</span>'}</td></tr>`).join('');
+  $('sku-rate-table').innerHTML = `<table class="ov-table">
+    <tr><th>规格</th><th>评论数</th><th>真实好评率</th><th>差评数</th></tr>${rows}</table>`;
+}
+function renderCooccur() {
+  const items = DATA.cooccur.length
+    ? DATA.cooccur.map(c => `<div class="review-item">⚡ <span class="badge info">${c.good}</span> 与 <span class="badge bad">${c.bad}</span> 同现 <b>${c.count}</b> 次 —— 体验中的"加分项 + 扣分项"组合</div>`).join('')
+    : '<div class="empty-hint">负面评论中暂无明显矛盾组合</div>';
+  $('sn-cooccur').innerHTML = `<div style="display:flex;flex-direction:column;gap:8px">${items}</div>`;
+}
+function renderSceneSamples() {
+  const cards = DATA.portrait.scene.map(s => `
+    <div class="review-item"><div class="meta"><span class="badge info">${s.name}</span> 共 ${s.count} 条</div>
+    ${esc(trunc(s.samples[0] || '—', 70))}</div>`).join('');
+  $('pt-scene-samples').innerHTML = `<div class="review-list">${cards}</div>`;
+}
+function renderRepSamples() {
+  const items = DATA.repurchase.samples.map(t => `<div class="review-item">🔁 ${esc(trunc(t, 70))}</div>`).join('');
+  $('pt-rep-samples').innerHTML = `<div class="review-list">${items}</div>`;
+}
+
+/* ---------- 洞察文本 ---------- */
+function renderInsights() {
+  const k = DATA.kpi;
+  const gt = DATA.good_themes[0];
+  const br = DATA.bad_reasons[0];
+  const skuBest = DATA.sku_rate.slice().sort((a, b) => b.real_rate - a.real_rate)[0];
+  const skuWorst = DATA.sku_rate.slice().sort((a, b) => a.real_rate - b.real_rate)[0];
+  const sceneTop = DATA.portrait.scene[0];
+  $('ov-insights').innerHTML = `<strong>核心结论：</strong>
+   ① 产品口碑扎实：真实好评率 <strong>${k.real_good_rate}%</strong>（${k.good} 条真实好评 / ${k.real_total} 条有内容评论）；
+   ② 口碑主要由「<strong>${gt.theme}</strong>」驱动（命中 ${gt.count} 条），买家最看重效果与正品保障；
+   ③ 需警惕点：中差评合计 ${k.mid + k.bad} 条，首要问题是「<strong>${br.reason}</strong>」（${br.count} 条）；
+   ④ 规格维度：<strong>${skuBest.sku}</strong> 真实好评率最高（${skuBest.real_rate}%），<strong>${skuWorst.sku}</strong> 相对最低（${skuWorst.real_rate}%，差评 ${skuWorst.bad_n} 条）；
+   ⑤ 典型购买动机是「<strong>${sceneTop.name}</strong>」（${sceneTop.count} 条提及），购买决策与关节健康需求强相关。`;
+  $('tm-insights').innerHTML = `<strong>时间维度洞察：</strong>
+   ① 评论量呈现明显的大促脉冲：<strong>2026-06（618）</strong>单月 338 条为峰值，其次 2026-05 / 2026-03；
+   ② 真实好评率两年均值稳定在 <strong>${k.real_good_rate}%</strong> 上下，未出现口碑恶化拐点；
+   ③ 差评在 <strong>2025-11、2025-09、2026-03、2026-08</strong> 有零星出现，量级小且不连续，暂无批次性质量问题信号；
+   ④ 评价活跃度周一最高、周末次之，与"收货后即评"习惯吻合。`;
+  const specPct = (v) => Math.round(v / DATA.kpi.total * 100);
+  $('pt-insights').innerHTML = `<strong>用户画像总结：</strong>
+   ① 规格偏好：<strong>标准疗程型（2-3盒）</strong>占比最高（${specPct(2394)}%），其次尝鲜型 1盒（${specPct(1626)}%）——购买决策偏向"先试后囤"；
+   ② 购买场景：<strong>${sceneTop.name}</strong> 是最大动机（${sceneTop.count} 条提及，占真实评论 ${Math.round(sceneTop.count / DATA.kpi.real_total * 100)}%），人群画像偏向中老年关节不适人群及其子女；
+   ③ 关注点：<strong>${DATA.portrait.focus[0].name}</strong> 为主（${DATA.portrait.focus[0].count} 条），价格敏感型次之——投放与详情页应主攻"效果"，次打"性价比"；
+   ④ 复购信号 ${k.repurchase} 条（占真实评论 ${Math.round(k.repurchase / k.real_total * 100)}%），存在稳定回头客，值得做会员/周期购运营。`;
+}
+
+/* ---------- KPI 填充 ---------- */
+function fillKpi() {
+  const k = DATA.kpi;
+  $('kpi-total').textContent = k.total;
+  $('kpi-good-rate').textContent = k.real_good_rate;
+  $('kpi-tpl').textContent = k.template;
+  $('kpi-tpl-rate').textContent = k.template_rate + '%';
+  $('kpi-mid').textContent = k.mid;
+  $('kpi-bad').textContent = k.bad;
+  $('kpi-rep').textContent = k.repurchase;
+  $('sku-k-spec').textContent = DATA.sku_dist.length;
+  $('sku-k-top').textContent = DATA.sku_dist[0].name;
+  const best = DATA.sku_rate.slice().sort((a, b) => b.real_rate - a.real_rate)[0];
+  const worst = DATA.sku_rate.slice().sort((a, b) => a.real_rate - b.real_rate)[0];
+  $('sku-k-best').textContent = best.sku + '（' + best.real_rate + '%）';
+  $('sku-k-worst').textContent = worst.sku + '（差评 ' + worst.bad_n + ' 条）';
+}
+
+/* ---------- 启动 ---------- */
+fillKpi();
+renderGoodTable(); renderBadTable(); renderSkuRateTable(); renderCooccur();
+renderSceneSamples(); renderRepSamples(); renderInsights();
+// 首次渲染当前页（总览）图表
+document.querySelectorAll('#page-overview [data-chart]').forEach(c => renderChart(c.id, OPTIONS[c.id]()));
+</script>
+</body>
+</html>
